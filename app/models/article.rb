@@ -1,12 +1,12 @@
 class Article < ApplicationRecord
   enum :status, { draft: 0, published: 1, archived: 2 }
 
-  validates :title, presence: { message: 'を入力してください' },
+  validates :title, presence: { message: 'タイトルを入力してください' },
                     length: { minimum: 1, maximum: 100,
-                             too_short: 'は1文字以上で入力してください',
-                             too_long: 'は100文字以内で入力してください' }
+                             too_short: 'タイトルは1文字以上で入力してください',
+                             too_long: 'タイトルは100文字以内で入力してください' }
 
-  validates :body, presence: { message: 'を入力してください' }
+  validates :body, presence: { message: '本文を入力してください' }
 
   validates :status, presence: { message: 'を入力してください' }
 

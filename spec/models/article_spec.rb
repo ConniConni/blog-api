@@ -18,19 +18,19 @@ RSpec.describe Article, type: :model do
       it 'titleが空の場合無効' do
         article = build(:article, title: '')
         expect(article).to be_invalid
-        expect(article.errors[:title]).to include('を入力してください')
+        expect(article.errors[:title]).to include('タイトルを入力してください')
       end
 
       it 'titleが101文字以上の場合無効' do
         article = build(:article, title: 'あ' * 101)
         expect(article).to be_invalid
-        expect(article.errors[:title]).to include('は100文字以内で入力してください')
+        expect(article.errors[:title]).to include('タイトルは100文字以内で入力してください')
       end
 
       it 'bodyが空の場合無効' do
         article = build(:article, body: '')
         expect(article).to be_invalid
-        expect(article.errors[:body]).to include('を入力してください')
+        expect(article.errors[:body]).to include('本文を入力してください')
       end
 
       it 'published状態でpublished_atがnilの場合無効' do
