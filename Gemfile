@@ -15,6 +15,7 @@ gem "puma", ">= 5.0"
 # Use Devise for authentication
 gem "devise"
 gem "devise-jwt"
+gem "jsonapi-serializer"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
