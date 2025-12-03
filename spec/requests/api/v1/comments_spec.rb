@@ -54,8 +54,10 @@ RSpec.describe "Api::V1::Comments", type: :request do
   end
 
   describe "POST /api/v1/articles/:article_id/comments" do
+    let(:user) { create(:user) }
+
     context "正常系" do
-      it "コメントを作成できること" do
+      it "認証ありでコメントを作成できること" do
         valid_params = {
           comment: {
             author_name: "テストユーザー",
@@ -64,7 +66,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
         }
 
         expect {
-          post api_v1_article_comments_path(article), params: valid_params
+          post api_v1_article_comments_path(article), params: valid_params, headers: auth_headers(user)
         }.to change(Comment, :count).by(1)
 
         expect(response).to have_http_status(:created)
@@ -73,6 +75,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
         expect(json["author_name"]).to eq("テストユーザー")
         expect(json["body"]).to eq("テストコメントです。")
         expect(json["article_id"]).to eq(article.id)
+        expect(json["user_id"]).to eq(user.id)
       end
 
       it "作成したコメントが記事に紐づいていること" do
@@ -83,7 +86,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
           }
         }
 
-        post api_v1_article_comments_path(article), params: valid_params
+        post api_v1_article_comments_path(article), params: valid_params, headers: auth_headers(user)
         expect(response).to have_http_status(:created)
 
         article.reload
@@ -102,7 +105,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
         }
 
         expect {
-          post api_v1_article_comments_path(article), params: invalid_params
+          post api_v1_article_comments_path(article), params: invalid_params, headers: auth_headers(user)
         }.not_to change(Comment, :count)
 
         expect(response).to have_http_status(:unprocessable_entity)
@@ -120,7 +123,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
         }
 
         expect {
-          post api_v1_article_comments_path(article), params: invalid_params
+          post api_v1_article_comments_path(article), params: invalid_params, headers: auth_headers(user)
         }.not_to change(Comment, :count)
 
         expect(response).to have_http_status(:unprocessable_entity)
@@ -138,7 +141,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
         }
 
         expect {
-          post api_v1_article_comments_path(article), params: invalid_params
+          post api_v1_article_comments_path(article), params: invalid_params, headers: auth_headers(user)
         }.not_to change(Comment, :count)
 
         expect(response).to have_http_status(:unprocessable_entity)
@@ -156,7 +159,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
         }
 
         expect {
-          post api_v1_article_comments_path(article), params: invalid_params
+          post api_v1_article_comments_path(article), params: invalid_params, headers: auth_headers(user)
         }.not_to change(Comment, :count)
 
         expect(response).to have_http_status(:unprocessable_entity)
@@ -173,31 +176,53 @@ RSpec.describe "Api::V1::Comments", type: :request do
           }
         }
 
-        post api_v1_article_comments_path(article_id: 99999), params: valid_params
+        post api_v1_article_comments_path(article_id: 99999), params: valid_params, headers: auth_headers(user)
         expect(response).to have_http_status(:not_found)
 
         json = JSON.parse(response.body)
         expect(json["error"]).to eq("Record not found")
       end
     end
+
+    context "認証" do
+      it "未認証の場合は401を返すこと" do
+        valid_params = {
+          comment: {
+            author_name: "テストユーザー",
+            body: "テストコメントです。"
+          }
+        }
+
+        expect {
+          post api_v1_article_comments_path(article), params: valid_params
+        }.not_to change(Comment, :count)
+
+        expect(response).to have_http_status(:unauthorized)
+
+        json = JSON.parse(response.body)
+        expect(json["error"]).to eq("Unauthorized")
+      end
+    end
   end
 
   describe "DELETE /api/v1/articles/:article_id/comments/:id" do
+    let(:user) { create(:user) }
+
     context "正常系" do
-      it "コメントを削除できること" do
-        comment = create(:comment, article: article)
+      it "自分のコメントを削除できること" do
+        comment = create(:comment, article: article, user: user)
 
         expect {
-          delete api_v1_article_comment_path(article, comment)
+          delete api_v1_article_comment_path(article, comment), headers: auth_headers(user)
         }.to change(Comment, :count).by(-1)
 
         expect(response).to have_http_status(:no_content)
       end
 
       it "削除後にコメントが存在しないこと" do
-        comment = create(:comment, article: article)
+        comment = create(:comment, article: article, user: user)
 
-        delete api_v1_article_comment_path(article, comment)
+        delete api_v1_article_comment_path(article, comment), headers: auth_headers(user)
         expect(response).to have_http_status(:no_content)
 
         expect(Comment.exists?(comment.id)).to be false
@@ -206,7 +231,7 @@ RSpec.describe "Api::V1::Comments", type: :request do
 
     context "異常系" do
       it "存在しないコメントIDの場合は404を返すこと" do
-        delete api_v1_article_comment_path(article, id: 99999)
+        delete api_v1_article_comment_path(article, id: 99999), headers: auth_headers(user)
         expect(response).to have_http_status(:not_found)
 
         json = JSON.parse(response.body)
@@ -214,9 +239,9 @@ RSpec.describe "Api::V1::Comments", type: :request do
       end
 
       it "存在しない記事IDの場合は404を返すこと" do
-        comment = create(:comment, article: article)
+        comment = create(:comment, article: article, user: user)
 
-        delete api_v1_article_comment_path(article_id: 99999, id: comment.id)
+        delete api_v1_article_comment_path(article_id: 99999, id: comment.id), headers: auth_headers(user)
         expect(response).to have_http_status(:not_found)
 
         json = JSON.parse(response.body)
@@ -225,13 +250,44 @@ RSpec.describe "Api::V1::Comments", type: :request do
 
       it "他の記事のコメントを削除しようとした場合は404を返すこと" do
         other_article = create(:article, :published)
-        other_comment = create(:comment, article: other_article)
+        other_comment = create(:comment, article: other_article, user: user)
 
-        delete api_v1_article_comment_path(article, other_comment)
+        delete api_v1_article_comment_path(article, other_comment), headers: auth_headers(user)
         expect(response).to have_http_status(:not_found)
 
         json = JSON.parse(response.body)
         expect(json["error"]).to eq("Record not found")
+      end
+    end
+
+    context "認証" do
+      it "未認証の場合は401を返すこと" do
+        comment = create(:comment, article: article, user: user)
+
+        expect {
+          delete api_v1_article_comment_path(article, comment)
+        }.not_to change(Comment, :count)
+
+        expect(response).to have_http_status(:unauthorized)
+
+        json = JSON.parse(response.body)
+        expect(json["error"]).to eq("Unauthorized")
+      end
+    end
+
+    context "認可" do
+      it "他ユーザーのコメントを削除しようとすると403を返すこと" do
+        other_user = create(:user)
+        comment = create(:comment, article: article, user: user)
+
+        expect {
+          delete api_v1_article_comment_path(article, comment), headers: auth_headers(other_user)
+        }.not_to change(Comment, :count)
+
+        expect(response).to have_http_status(:forbidden)
+
+        json = JSON.parse(response.body)
+        expect(json["error"]).to eq("Forbidden")
       end
     end
   end

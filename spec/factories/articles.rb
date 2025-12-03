@@ -1,5 +1,6 @@
 FactoryBot.define do
   factory :article do
+    association :user
     title { "テスト記事タイトル" }
     body { "テスト記事の本文です。" }
     status { :draft }

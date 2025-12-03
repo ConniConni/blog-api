@@ -55,8 +55,10 @@ RSpec.describe "Api::V1::Articles", type: :request do
   end
 
   describe "POST /api/v1/articles" do
+    let(:user) { create(:user) }
+
     context "正常系" do
-      it "正しいパラメータで記事が作成できること" do
+      it "認証ありで正しいパラメータで記事が作成できること" do
         valid_params = {
           article: {
             title: "新規記事",
@@ -66,7 +68,7 @@ RSpec.describe "Api::V1::Articles", type: :request do
         }
 
         expect {
-          post api_v1_articles_path, params: valid_params
+          post api_v1_articles_path, params: valid_params, headers: auth_headers(user)
         }.to change(Article, :count).by(1)
 
         expect(response).to have_http_status(:created)
@@ -75,6 +77,7 @@ RSpec.describe "Api::V1::Articles", type: :request do
         expect(json["title"]).to eq("新規記事")
         expect(json["body"]).to eq("新規記事の本文")
         expect(json["status"]).to eq("draft")
+        expect(json["user_id"]).to eq(user.id)
       end
 
       it "published状態で作成するとpublished_atが自動設定されること" do
@@ -86,7 +89,7 @@ RSpec.describe "Api::V1::Articles", type: :request do
           }
         }
 
-        post api_v1_articles_path, params: valid_params
+        post api_v1_articles_path, params: valid_params, headers: auth_headers(user)
         expect(response).to have_http_status(:created)
 
         json = JSON.parse(response.body)
@@ -106,7 +109,7 @@ RSpec.describe "Api::V1::Articles", type: :request do
         }
 
         expect {
-          post api_v1_articles_path, params: invalid_params
+          post api_v1_articles_path, params: invalid_params, headers: auth_headers(user)
         }.not_to change(Article, :count)
 
         expect(response).to have_http_status(:unprocessable_entity)
@@ -124,7 +127,7 @@ RSpec.describe "Api::V1::Articles", type: :request do
           }
         }
 
-        post api_v1_articles_path, params: invalid_params
+        post api_v1_articles_path, params: invalid_params, headers: auth_headers(user)
         expect(response).to have_http_status(:unprocessable_entity)
 
         json = JSON.parse(response.body)
@@ -140,20 +143,42 @@ RSpec.describe "Api::V1::Articles", type: :request do
           }
         }
 
-        post api_v1_articles_path, params: invalid_params
+        post api_v1_articles_path, params: invalid_params, headers: auth_headers(user)
         expect(response).to have_http_status(:unprocessable_entity)
 
         json = JSON.parse(response.body)
         expect(json["errors"]).to include("Body 本文を入力してください")
       end
     end
+
+    context "認証" do
+      it "未認証の場合は401を返すこと" do
+        valid_params = {
+          article: {
+            title: "新規記事",
+            body: "新規記事の本文",
+            status: "draft"
+          }
+        }
+
+        expect {
+          post api_v1_articles_path, params: valid_params
+        }.not_to change(Article, :count)
+
+        expect(response).to have_http_status(:unauthorized)
+
+        json = JSON.parse(response.body)
+        expect(json["error"]).to eq("Unauthorized")
+      end
+    end
   end
 
   describe "PATCH /api/v1/articles/:id" do
-    let(:article) { create(:article) }
+    let(:user) { create(:user) }
+    let(:article) { create(:article, user: user) }
 
     context "正常系" do
-      it "記事を更新できること" do
+      it "自分の記事を更新できること" do
         update_params = {
           article: {
             title: "更新後タイトル",
@@ -161,7 +186,7 @@ RSpec.describe "Api::V1::Articles", type: :request do
           }
         }
 
-        patch api_v1_article_path(article), params: update_params
+        patch api_v1_article_path(article), params: update_params, headers: auth_headers(user)
         expect(response).to have_http_status(:ok)
 
         json = JSON.parse(response.body)
@@ -180,7 +205,7 @@ RSpec.describe "Api::V1::Articles", type: :request do
           }
         }
 
-        patch api_v1_article_path(article), params: update_params
+        patch api_v1_article_path(article), params: update_params, headers: auth_headers(user)
         expect(response).to have_http_status(:ok)
 
         json = JSON.parse(response.body)
@@ -197,7 +222,7 @@ RSpec.describe "Api::V1::Articles", type: :request do
           }
         }
 
-        patch api_v1_article_path(id: 99999), params: update_params
+        patch api_v1_article_path(id: 99999), params: update_params, headers: auth_headers(user)
         expect(response).to have_http_status(:not_found)
 
         json = JSON.parse(response.body)
@@ -211,7 +236,7 @@ RSpec.describe "Api::V1::Articles", type: :request do
           }
         }
 
-        patch api_v1_article_path(article), params: update_params
+        patch api_v1_article_path(article), params: update_params, headers: auth_headers(user)
         expect(response).to have_http_status(:unprocessable_entity)
 
         json = JSON.parse(response.body)
@@ -221,15 +246,53 @@ RSpec.describe "Api::V1::Articles", type: :request do
         expect(article.title).not_to eq("")
       end
     end
+
+    context "認証" do
+      it "未認証の場合は401を返すこと" do
+        update_params = {
+          article: {
+            title: "更新後タイトル"
+          }
+        }
+
+        patch api_v1_article_path(article), params: update_params
+        expect(response).to have_http_status(:unauthorized)
+
+        json = JSON.parse(response.body)
+        expect(json["error"]).to eq("Unauthorized")
+      end
+    end
+
+    context "認可" do
+      it "他ユーザーの記事を更新しようとすると403を返すこと" do
+        other_user = create(:user)
+        update_params = {
+          article: {
+            title: "更新後タイトル"
+          }
+        }
+
+        patch api_v1_article_path(article), params: update_params, headers: auth_headers(other_user)
+        expect(response).to have_http_status(:forbidden)
+
+        json = JSON.parse(response.body)
+        expect(json["error"]).to eq("Forbidden")
+
+        article.reload
+        expect(article.title).not_to eq("更新後タイトル")
+      end
+    end
   end
 
   describe "DELETE /api/v1/articles/:id" do
+    let(:user) { create(:user) }
+
     context "正常系" do
-      it "記事を削除できること" do
-        article = create(:article)
+      it "自分の記事を削除できること" do
+        article = create(:article, user: user)
 
         expect {
-          delete api_v1_article_path(article)
+          delete api_v1_article_path(article), headers: auth_headers(user)
         }.to change(Article, :count).by(-1)
 
         expect(response).to have_http_status(:no_content)
@@ -238,11 +301,42 @@ RSpec.describe "Api::V1::Articles", type: :request do
 
     context "異常系" do
       it "存在しないIDの場合は404を返すこと" do
-        delete api_v1_article_path(id: 99999)
+        delete api_v1_article_path(id: 99999), headers: auth_headers(user)
         expect(response).to have_http_status(:not_found)
 
         json = JSON.parse(response.body)
         expect(json["error"]).to eq("Record not found")
+      end
+    end
+
+    context "認証" do
+      it "未認証の場合は401を返すこと" do
+        article = create(:article, user: user)
+
+        expect {
+          delete api_v1_article_path(article)
+        }.not_to change(Article, :count)
+
+        expect(response).to have_http_status(:unauthorized)
+
+        json = JSON.parse(response.body)
+        expect(json["error"]).to eq("Unauthorized")
+      end
+    end
+
+    context "認可" do
+      it "他ユーザーの記事を削除しようとすると403を返すこと" do
+        other_user = create(:user)
+        article = create(:article, user: user)
+
+        expect {
+          delete api_v1_article_path(article), headers: auth_headers(other_user)
+        }.not_to change(Article, :count)
+
+        expect(response).to have_http_status(:forbidden)
+
+        json = JSON.parse(response.body)
+        expect(json["error"]).to eq("Forbidden")
       end
     end
   end
