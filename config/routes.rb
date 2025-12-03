@@ -8,5 +8,15 @@ Rails.application.routes.draw do
   # Defines the root path route ("/")
   # root "posts#index"
 
-  resources :articles
+  namespace :api do
+    namespace :v1 do
+      resources :articles do
+        resources :comments, only: %i[index create destroy]
+      end
+    end
+  end
+
+  resources :articles do
+    resources :comments, only: %i[index create destroy]
+  end
 end

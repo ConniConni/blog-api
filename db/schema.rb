@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_01_123744) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_03_105520) do
   create_table "articles", force: :cascade do |t|
     t.text "body", null: false
     t.datetime "created_at", null: false
@@ -21,4 +21,15 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_01_123744) do
     t.index ["published_at"], name: "index_articles_on_published_at"
     t.index ["status"], name: "index_articles_on_status"
   end
+
+  create_table "comments", force: :cascade do |t|
+    t.integer "article_id", null: false
+    t.string "author_name", null: false
+    t.text "body", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["article_id"], name: "index_comments_on_article_id"
+  end
+
+  add_foreign_key "comments", "articles"
 end

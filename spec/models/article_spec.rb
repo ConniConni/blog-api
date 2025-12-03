@@ -117,4 +117,19 @@ RSpec.describe Article, type: :model do
       end
     end
   end
+
+  describe 'リレーション' do
+    it 'commentsを複数持つこと' do
+      association = described_class.reflect_on_association(:comments)
+      expect(association.macro).to eq(:has_many)
+    end
+
+    it '記事削除時に関連するコメントも削除されること' do
+      article = create(:article)
+      comment1 = create(:comment, article: article)
+      comment2 = create(:comment, article: article)
+
+      expect { article.destroy }.to change { Comment.count }.by(-2)
+    end
+  end
 end
