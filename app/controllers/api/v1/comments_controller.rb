@@ -1,8 +1,10 @@
 module Api
   module V1
     class CommentsController < ApplicationController
+      before_action :authenticate_user!, only: %i[create destroy]
       before_action :set_article
       before_action :set_comment, only: %i[destroy]
+      before_action :authorize_user!, only: %i[destroy]
       rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
 
       # GET /api/v1/articles/:article_id/comments
@@ -14,6 +16,7 @@ module Api
       # POST /api/v1/articles/:article_id/comments
       def create
         @comment = @article.comments.new(comment_params)
+        @comment.user = current_user
 
         if @comment.save
           render json: @comment, status: :created
@@ -40,6 +43,12 @@ module Api
 
       def comment_params
         params.require(:comment).permit(:author_name, :body)
+      end
+
+      def authorize_user!
+        unless @comment.user_id == current_user.id
+          render json: { error: 'Forbidden' }, status: :forbidden
+        end
       end
 
       def render_not_found

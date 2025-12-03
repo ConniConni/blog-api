@@ -1,4 +1,5 @@
 class Article < ApplicationRecord
+  belongs_to :user
   has_many :comments, dependent: :destroy
 
   enum :status, { draft: 0, published: 1, archived: 2 }

@@ -7,6 +7,9 @@ class User < ApplicationRecord
          :recoverable, :rememberable, :validatable,
          :jwt_authenticatable, jwt_revocation_strategy: self
 
+  has_many :articles, dependent: :destroy
+  has_many :comments, dependent: :destroy
+
   # Validations
   validates :name, presence: { message: 'を入力してください' }
 end
